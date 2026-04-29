@@ -1,5 +1,7 @@
 package com.example.uammap.navigation
 
+//Screen es una clase que define las rutas de navegación de la app por medio de Jetpack Compose (Navigation).
+
 sealed class Screen(val route: String) {
     object Home : Screen("home")
     object Search : Screen("search")

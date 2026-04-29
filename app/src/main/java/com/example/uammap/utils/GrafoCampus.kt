@@ -2,6 +2,9 @@ package com.example.uammap.utils
 
 import com.example.uammap.model.*
 
+//GrafoCampus contiene los 16 nodos que representan las distintas ubicaciones dentro del campus de la UAM.
+//Contiene aristas conectores, y la lista de puntos de interés.
+
 object GrafoCampus {
     val nodos: List<Nodo> = listOf(
         Nodo("A", "Caja", 50f, 400f, TipoNodo.CAJA),

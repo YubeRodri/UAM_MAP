@@ -1,5 +1,7 @@
 package com.example.uammap.screens
 
+//Es una pantalla de búsqueda, que cuenta con un campo de texto y una lista filtrable de todos los edificios y puntos de interés.
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn

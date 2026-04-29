@@ -1,5 +1,8 @@
 package com.example.uammap.screens
 
+//La pantalla muestra el resultado de la ruta calculada.
+//Muestra los datos de origen, destino, distancia total y la secuencia de nodos seguidas para llegar desde el punto destino hasta el punto final.
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack

@@ -1,5 +1,8 @@
 package com.example.uammap.screens
 
+//La clase contiene el mapa interactivo del campus.
+//Muestra un grafo que permite arrastrar para desplazarse sobre el mapa, o tocar sobre un edificio para calcular la ruta desde el punto de partida, el cuál, es considerado la caja (A).
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures

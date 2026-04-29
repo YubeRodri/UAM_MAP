@@ -1,5 +1,9 @@
 package com.example.uammap.screens
 
+//Es una pantalla encargada de simular la navegación en tiempo real.
+//Muestra el grafo del campus, junto a un punto verde animado, que avanza cada 2 segundos al siguiente nodo de la ruta.
+//Muestra un mensaje de confirmación al llegar al final de la ruta.
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
