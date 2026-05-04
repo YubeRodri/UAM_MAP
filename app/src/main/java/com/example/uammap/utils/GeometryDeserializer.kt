@@ -23,7 +23,6 @@ class GeometryDeserializer : JsonDeserializer<Geometry> {
                 listOf(rings)
             }
             else -> {
-                // LineString, MultiPolygon, etc. -> devolvemos lista vacía para evitar null
                 emptyList<Any>()
             }
         }

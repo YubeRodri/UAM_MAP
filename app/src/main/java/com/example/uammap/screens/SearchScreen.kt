@@ -21,7 +21,6 @@ fun SearchScreen(navController: NavController) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
 
-    // Cargar datos si aún no están
     LaunchedEffect(Unit) { MapDataLoader.load(context) }
 
     val edificios = MapDataLoader.edificios

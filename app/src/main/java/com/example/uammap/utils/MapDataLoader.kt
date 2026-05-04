@@ -11,7 +11,7 @@ import java.io.InputStreamReader
 
 object MapDataLoader {
     private const val TAG = "MapDataLoader"
-    private const val MAP_SIZE = 10000f   // tamaño del mundo en píxeles virtuales
+    private const val MAP_SIZE = 10000f
 
     var edificios: List<Edificio> = emptyList()
     var nodos: List<Nodo> = emptyList()
@@ -79,7 +79,6 @@ object MapDataLoader {
                 Log.d(TAG, "Encontrados ${tempEdificios.size} polígonos y ${tempPoints.size} puntos")
                 Log.d(TAG, "Límites: lon[$minLon, $maxLon] lat[$minLat, $maxLat]")
 
-                // Calcular tamaño del mundo manteniendo relación de aspecto
                 val lonRange = maxLon - minLon
                 val latRange = maxLat - minLat
                 val aspect = lonRange / latRange
@@ -99,7 +98,6 @@ object MapDataLoader {
                     return Offset(x, y)
                 }
 
-                // Construir edificios
                 edificios = tempEdificios.map { (name, exterior) ->
                     val projectedPoints = exterior.map { proj(it[0], it[1]) }
                     val centroid = Offset(
@@ -121,7 +119,6 @@ object MapDataLoader {
                     Log.d(TAG, "${ed.name}: ${ed.points.size} puntos, centroide=(${ed.centroid.x},${ed.centroid.y})")
                 }
 
-                // Nodos (centroides en coordenadas del mundo)
                 nodos = edificios.mapIndexed { index, ed ->
                     Nodo(
                         id = index.toString(),
@@ -132,7 +129,6 @@ object MapDataLoader {
                     )
                 }
 
-                // Aristas (umbral 500 unidades del mundo)
                 val umbral = 500f
                 val tempAristas = mutableListOf<Arista>()
                 for (i in nodos.indices) {

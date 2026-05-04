@@ -105,7 +105,7 @@ fun HomeScreen(navController: NavController) {
                     .pointerInput(edificios) {
                         detectTapGestures { tapOffset ->
                             val canvasSize = size
-                            // Invertir la transformación: (tap - offset) / scale
+
                             val adjusted = Offset(
                                 (tapOffset.x - offset.x) / scale,
                                 (tapOffset.y - offset.y) / scale
@@ -131,15 +131,11 @@ fun HomeScreen(navController: NavController) {
             ) {
                 val canvasWidth = size.width
                 val canvasHeight = size.height
-
-                // Escala uniforme para que el mapa quepa en la pantalla manteniendo proporción
                 val worldWidth = edificios.maxOf { it.points.maxOf { p -> p.x } } -
                         edificios.minOf { it.points.minOf { p -> p.x } }
                 val worldHeight = edificios.maxOf { it.points.maxOf { p -> p.y } } -
                         edificios.minOf { it.points.minOf { p -> p.y } }
-                scale = minOf(canvasWidth / worldWidth, canvasHeight / worldHeight) * 0.9f  // 90% para margen
-
-                // Dibujar polígonos con la escala y desplazamiento
+                scale = minOf(canvasWidth / worldWidth, canvasHeight / worldHeight) * 0.9f
                 for (ed in edificios) {
                     val path = Path()
                     val pts = ed.points.map {
@@ -155,14 +151,11 @@ fun HomeScreen(navController: NavController) {
                         drawPath(path, Color(ed.color).copy(alpha = 0.7f))
                         drawPath(path, Color.DarkGray, style = Stroke(width = 2f))
                     }
-
-                    // Dibujar un círculo en el centroide para asegurar visibilidad
                     val cx = ed.centroid.x * scale + offset.x
                     val cy = ed.centroid.y * scale + offset.y
                     drawCircle(Color.Red, radius = 8f, center = Offset(cx, cy))
                 }
 
-                // Nombres (opcional, pueden solaparse si hay muchos)
                 for (ed in edificios) {
                     val cx = ed.centroid.x * scale + offset.x
                     val cy = ed.centroid.y * scale + offset.y

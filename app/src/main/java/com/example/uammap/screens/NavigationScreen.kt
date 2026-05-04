@@ -27,7 +27,6 @@ fun NavigationScreen(navController: NavController, rutaNodesStr: String, origenI
     val context = LocalContext.current
     val textMeasurer = rememberTextMeasurer()
 
-    // Cargar datos si es necesario
     if (MapDataLoader.nodos.isEmpty()) {
         LaunchedEffect(Unit) { MapDataLoader.load(context) }
         return
@@ -38,7 +37,6 @@ fun NavigationScreen(navController: NavController, rutaNodesStr: String, origenI
     val nodos = MapDataLoader.nodos
     val currentNodo = nodos.find { it.id == nodeIds[currentIndex] } ?: return
 
-    // Avance automático
     LaunchedEffect(currentIndex) {
         if (currentIndex < nodeIds.lastIndex) {
             delay(2000)
@@ -66,25 +64,21 @@ fun NavigationScreen(navController: NavController, rutaNodesStr: String, origenI
                 val canvasWidth = size.width
                 val canvasHeight = size.height
 
-                // Calcular escala igual que en HomeScreen para que se vea todo el campus
                 val worldWidth = nodos.maxOf { it.x } - nodos.minOf { it.x }
                 val worldHeight = nodos.maxOf { it.y } - nodos.minOf { it.y }
                 if (worldWidth == 0f || worldHeight == 0f) return@Canvas
                 val scale = minOf(canvasWidth / worldWidth, canvasHeight / worldHeight) * 0.9f
 
-                // Dibujar todos los nodos (círculos grises)
                 for (nodo in nodos) {
                     val x = nodo.x * scale
                     val y = nodo.y * scale
                     drawCircle(Color.LightGray, radius = 12f, center = Offset(x, y))
-                    // Etiqueta pequeña
                     val text = nodo.nombre.take(10)
                     val style = TextStyle(color = Color.Black, fontSize = 8.sp)
                     val textLayout = textMeasurer.measure(text, style)
                     drawText(textLayout, topLeft = Offset(x - textLayout.size.width/2f, y - 16f))
                 }
 
-                // Dibujar aristas de toda la red (tenue)
                 for (arista in MapDataLoader.aristas) {
                     val o = nodos.find { it.id == arista.origen } ?: continue
                     val d = nodos.find { it.id == arista.destino } ?: continue
@@ -96,7 +90,6 @@ fun NavigationScreen(navController: NavController, rutaNodesStr: String, origenI
                     )
                 }
 
-                // Punto verde del usuario (más grande)
                 drawCircle(
                     Color.Green,
                     radius = 16f,
@@ -104,7 +97,6 @@ fun NavigationScreen(navController: NavController, rutaNodesStr: String, origenI
                 )
             }
 
-            // Instrucciones abajo
             Column(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
             ) {

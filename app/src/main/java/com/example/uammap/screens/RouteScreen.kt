@@ -24,12 +24,10 @@ fun RouteScreen(
 ) {
     val context = LocalContext.current
 
-    // Asegurar que los datos estén cargados (por si se accede directamente)
     LaunchedEffect(Unit) {
         MapDataLoader.load(context)
     }
 
-    // Esperar a que los datos estén listos antes de calcular la ruta
     val ruta = remember(MapDataLoader.nodos, MapDataLoader.aristas, origenId, destinoId) {
         if (MapDataLoader.nodos.isNotEmpty()) {
             CalculadorRutas.calcularRuta(
