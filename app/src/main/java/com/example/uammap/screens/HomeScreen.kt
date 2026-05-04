@@ -1,8 +1,5 @@
 package com.example.uammap.screens
 
-//La clase contiene el mapa interactivo del campus.
-//Muestra un grafo que permite arrastrar para desplazarse sobre el mapa, o tocar sobre un edificio para calcular la ruta desde el punto de partida, el cuál, es considerado la caja (A).
-
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -14,31 +11,73 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.uammap.model.TipoNodo
 import com.example.uammap.navigation.Screen
-import com.example.uammap.utils.GrafoCampus
-import kotlin.math.sqrt
+import com.example.uammap.utils.MapDataLoader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(navController: NavController) {
-    val nodos = GrafoCampus.nodos
-    val aristas = GrafoCampus.aristas
-    val density = LocalDensity.current
+    val context = LocalContext.current
     val textMeasurer = rememberTextMeasurer()
 
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        MapDataLoader.load(context)
+        isLoading = false
+    }
+
+    val edificios = MapDataLoader.edificios
+    val error = MapDataLoader.lastError
+
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Cargando mapa...")
+            }
+        }
+        return
+    }
+
+    if (error != null) {
+        AlertDialog(
+            onDismissRequest = { MapDataLoader.lastError = null },
+            title = { Text("Error al cargar el mapa") },
+            text = { Text(error) },
+            confirmButton = {
+                TextButton(onClick = { MapDataLoader.lastError = null }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    if (edificios.isEmpty() && error == null) {
+        Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
+            Text("No se encontraron edificios en el mapa.",
+                modifier = Modifier.align(Alignment.Center))
+        }
+        return
+    }
+
     var offset by remember { mutableStateOf(Offset.Zero) }
-    var mensajePorDefecto by remember { mutableStateOf<String?>(null) }
+    var scale by remember { mutableStateOf(1f) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Mapa UAM") }) }
@@ -63,101 +102,78 @@ fun HomeScreen(navController: NavController) {
                             }
                         )
                     }
-                    .pointerInput(Unit) {
+                    .pointerInput(edificios) {
                         detectTapGestures { tapOffset ->
-                            val densidad = density.density
-                            val radioPx = 20f * densidad
-                            var nodoTocado: String? = null
-                            for (nodo in nodos) {
-                                val nx = nodo.x * densidad + offset.x
-                                val ny = nodo.y * densidad + offset.y
-                                val dx = tapOffset.x - nx
-                                val dy = tapOffset.y - ny
-                                if (sqrt(dx * dx + dy * dy) <= radioPx) {
-                                    nodoTocado = nodo.id
-                                    break
+                            val canvasSize = size
+                            // Invertir la transformación: (tap - offset) / scale
+                            val adjusted = Offset(
+                                (tapOffset.x - offset.x) / scale,
+                                (tapOffset.y - offset.y) / scale
+                            )
+                            for (ed in edificios) {
+                                if (isPointInPolygon(adjusted, ed.points)) {
+                                    val origenId = "0"
+                                    val origen = edificios.firstOrNull()?.name ?: "Origen"
+                                    val destinoId = edificios.indexOf(ed).toString()
+                                    navController.navigate(
+                                        Screen.Route.createRoute(
+                                            origenId,
+                                            destinoId,
+                                            origen,
+                                            ed.name
+                                        )
+                                    )
+                                    return@detectTapGestures
                                 }
-                            }
-                            if (nodoTocado != null) {
-                                val origenId = "A"
-                                val origenNombre = nodos.find { it.id == origenId }?.nombre ?: "Caja"
-                                val destinoNombre = nodos.find { it.id == nodoTocado }?.nombre ?: nodoTocado
-                                navController.navigate(
-                                    Screen.Route.createRoute(origenId, nodoTocado, origenNombre, destinoNombre)
-                                )
-                            } else {
-                                mensajePorDefecto = "No se encontró edificio en esa posición"
                             }
                         }
                     }
             ) {
-                val densidad = density.density
+                val canvasWidth = size.width
+                val canvasHeight = size.height
 
-                for (arista in aristas) {
-                    val origen = nodos.find { it.id == arista.origen } ?: continue
-                    val destino = nodos.find { it.id == arista.destino } ?: continue
-                    drawLine(
-                        color = Color.Gray,
-                        start = Offset(
-                            origen.x * densidad + offset.x,
-                            origen.y * densidad + offset.y
-                        ),
-                        end = Offset(
-                            destino.x * densidad + offset.x,
-                            destino.y * densidad + offset.y
-                        ),
-                        strokeWidth = 4f
-                    )
-                }
+                // Escala uniforme para que el mapa quepa en la pantalla manteniendo proporción
+                val worldWidth = edificios.maxOf { it.points.maxOf { p -> p.x } } -
+                        edificios.minOf { it.points.minOf { p -> p.x } }
+                val worldHeight = edificios.maxOf { it.points.maxOf { p -> p.y } } -
+                        edificios.minOf { it.points.minOf { p -> p.y } }
+                scale = minOf(canvasWidth / worldWidth, canvasHeight / worldHeight) * 0.9f  // 90% para margen
 
-                for (nodo in nodos) {
-                    val nx = nodo.x * densidad + offset.x
-                    val ny = nodo.y * densidad + offset.y
-                    val circleColor = when (nodo.tipo) {
-                        TipoNodo.CAJA -> Color(0xFFFFA000)
-                        TipoNodo.BIBLIOTECA -> Color(0xFF1E88E5)
-                        TipoNodo.CAFETERIA -> Color(0xFFE53935)
-                        else -> Color(0xFF43A047)
+                // Dibujar polígonos con la escala y desplazamiento
+                for (ed in edificios) {
+                    val path = Path()
+                    val pts = ed.points.map {
+                        Offset(it.x * scale + offset.x, it.y * scale + offset.y)
                     }
-                    drawCircle(
-                        color = circleColor,
-                        radius = 20f * densidad,
-                        center = Offset(nx, ny)
-                    )
+                    if (pts.isNotEmpty()) {
+                        path.moveTo(pts[0].x, pts[0].y)
+                        for (i in 1 until pts.size) {
+                            path.lineTo(pts[i].x, pts[i].y)
+                        }
+                        path.close()
 
-                    val textLayoutResult = textMeasurer.measure(
-                        text = nodo.id,
-                        style = TextStyle(
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center
-                        )
-                    )
+                        drawPath(path, Color(ed.color).copy(alpha = 0.7f))
+                        drawPath(path, Color.DarkGray, style = Stroke(width = 2f))
+                    }
+
+                    // Dibujar un círculo en el centroide para asegurar visibilidad
+                    val cx = ed.centroid.x * scale + offset.x
+                    val cy = ed.centroid.y * scale + offset.y
+                    drawCircle(Color.Red, radius = 8f, center = Offset(cx, cy))
+                }
+
+                // Nombres (opcional, pueden solaparse si hay muchos)
+                for (ed in edificios) {
+                    val cx = ed.centroid.x * scale + offset.x
+                    val cy = ed.centroid.y * scale + offset.y
+                    val text = ed.name.take(15)
+                    val style = TextStyle(color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    val textLayout = textMeasurer.measure(text, style)
                     drawText(
-                        textLayoutResult = textLayoutResult,
-                        topLeft = Offset(
-                            nx - textLayoutResult.size.width / 2f,
-                            ny - textLayoutResult.size.height / 2f
-                        )
+                        textLayoutResult = textLayout,
+                        topLeft = Offset(cx - textLayout.size.width / 2f, cy - textLayout.size.height / 2f)
                     )
                 }
-            }
-            
-            nodos.filter { it.tipo != TipoNodo.EDIFICIO }.forEach { nodo ->
-                Text(
-                    text = nodo.nombre,
-                    modifier = Modifier
-                        .offset(
-                            x = (nodo.x + offset.x / density.density).dp,
-                            y = (nodo.y + 20 + offset.y / density.density).dp
-                        )
-                        .background(Color.White.copy(alpha = 0.8f))
-                        .padding(2.dp),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
             }
 
             Button(
@@ -168,19 +184,24 @@ fun HomeScreen(navController: NavController) {
             ) {
                 Text("Buscar destino")
             }
-
-            mensajePorDefecto?.let {
-                AlertDialog(
-                    onDismissRequest = { mensajePorDefecto = null },
-                    title = { Text("Información") },
-                    text = { Text(it) },
-                    confirmButton = {
-                        TextButton(onClick = { mensajePorDefecto = null }) {
-                            Text("OK")
-                        }
-                    }
-                )
-            }
         }
     }
+}
+
+fun isPointInPolygon(point: Offset, polygon: List<Offset>): Boolean {
+    var intersects = false
+    var j = polygon.size - 1
+    for (i in polygon.indices) {
+        val xi = polygon[i].x
+        val yi = polygon[i].y
+        val xj = polygon[j].x
+        val yj = polygon[j].y
+        if ((yi > point.y) != (yj > point.y) &&
+            point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi
+        ) {
+            intersects = !intersects
+        }
+        j = i
+    }
+    return intersects
 }

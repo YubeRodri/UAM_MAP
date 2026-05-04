@@ -1,9 +1,5 @@
 package com.example.uammap.utils
 
-//CalculadorRutas recibe el conjunto de la lista de nodos, aristas, origen y destino.
-//A base de la información recibida, crea un objeto Ruta, que representa el camino más corto existente entre el origen y destino seleccionados.
-//Para lograr esto, utiliza un algoritmo estilo Dijkstra, un metodo utilizado para encontrar la ruta más corta desde un nodo inicial en un grafo, hasta los demás nodos.
-
 import com.example.uammap.model.*
 import java.util.PriorityQueue
 

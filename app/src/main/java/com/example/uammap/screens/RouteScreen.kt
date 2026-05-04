@@ -1,20 +1,17 @@
 package com.example.uammap.screens
 
-//La pantalla muestra el resultado de la ruta calculada.
-//Muestra los datos de origen, destino, distancia total y la secuencia de nodos seguidas para llegar desde el punto destino hasta el punto final.
-
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.uammap.navigation.Screen
 import com.example.uammap.utils.CalculadorRutas
-import com.example.uammap.utils.GrafoCampus
+import com.example.uammap.utils.MapDataLoader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,8 +22,23 @@ fun RouteScreen(
     origenNombre: String,
     destinoNombre: String
 ) {
-    val ruta = remember {
-        CalculadorRutas.calcularRuta(GrafoCampus.nodos, GrafoCampus.aristas, origenId, destinoId)
+    val context = LocalContext.current
+
+    // Asegurar que los datos estén cargados (por si se accede directamente)
+    LaunchedEffect(Unit) {
+        MapDataLoader.load(context)
+    }
+
+    // Esperar a que los datos estén listos antes de calcular la ruta
+    val ruta = remember(MapDataLoader.nodos, MapDataLoader.aristas, origenId, destinoId) {
+        if (MapDataLoader.nodos.isNotEmpty()) {
+            CalculadorRutas.calcularRuta(
+                MapDataLoader.nodos,
+                MapDataLoader.aristas,
+                origenId,
+                destinoId
+            )
+        } else null
     }
 
     Scaffold(
@@ -43,7 +55,11 @@ fun RouteScreen(
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp)) {
             if (ruta == null) {
-                Text("No se pudo calcular una ruta entre $origenNombre y $destinoNombre")
+                if (MapDataLoader.nodos.isEmpty()) {
+                    Text("Cargando datos del mapa...")
+                } else {
+                    Text("No se pudo calcular una ruta entre $origenNombre y $destinoNombre")
+                }
                 return@Column
             }
             Text("Desde: $origenNombre", style = MaterialTheme.typography.titleMedium)
@@ -61,12 +77,6 @@ fun RouteScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Iniciar navegación")
-            }
-            OutlinedButton(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-            ) {
-                Text("Volver al mapa")
             }
         }
     }

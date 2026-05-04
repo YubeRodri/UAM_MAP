@@ -1,9 +1,5 @@
 package com.example.uammap.screens
 
-//Es una pantalla encargada de simular la navegación en tiempo real.
-//Muestra el grafo del campus, junto a un punto verde animado, que avanza cada 2 segundos al siguiente nodo de la ruta.
-//Muestra un mensaje de confirmación al llegar al final de la ruta.
-
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -12,28 +8,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.uammap.utils.GrafoCampus
+import com.example.uammap.utils.MapDataLoader
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NavigationScreen(navController: NavController, rutaNodesStr: String, origenId: String) {
-    val nodeIds = remember { rutaNodesStr.split(",") }
-    var currentIndex by remember { mutableIntStateOf(0) }
-    val nodos = GrafoCampus.nodos
-    val currentNodo = nodos.find { it.id == nodeIds[currentIndex] } ?: return
-    val density = LocalDensity.current
+    val context = LocalContext.current
     val textMeasurer = rememberTextMeasurer()
 
+    // Cargar datos si es necesario
+    if (MapDataLoader.nodos.isEmpty()) {
+        LaunchedEffect(Unit) { MapDataLoader.load(context) }
+        return
+    }
+
+    val nodeIds = remember { rutaNodesStr.split(",") }
+    var currentIndex by remember { mutableIntStateOf(0) }
+    val nodos = MapDataLoader.nodos
+    val currentNodo = nodos.find { it.id == nodeIds[currentIndex] } ?: return
+
+    // Avance automático
     LaunchedEffect(currentIndex) {
         if (currentIndex < nodeIds.lastIndex) {
             delay(2000)
@@ -58,48 +63,48 @@ fun NavigationScreen(navController: NavController, rutaNodesStr: String, origenI
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val densityPx = density.density
+                val canvasWidth = size.width
+                val canvasHeight = size.height
 
-                for (arista in GrafoCampus.aristas) {
+                // Calcular escala igual que en HomeScreen para que se vea todo el campus
+                val worldWidth = nodos.maxOf { it.x } - nodos.minOf { it.x }
+                val worldHeight = nodos.maxOf { it.y } - nodos.minOf { it.y }
+                if (worldWidth == 0f || worldHeight == 0f) return@Canvas
+                val scale = minOf(canvasWidth / worldWidth, canvasHeight / worldHeight) * 0.9f
+
+                // Dibujar todos los nodos (círculos grises)
+                for (nodo in nodos) {
+                    val x = nodo.x * scale
+                    val y = nodo.y * scale
+                    drawCircle(Color.LightGray, radius = 12f, center = Offset(x, y))
+                    // Etiqueta pequeña
+                    val text = nodo.nombre.take(10)
+                    val style = TextStyle(color = Color.Black, fontSize = 8.sp)
+                    val textLayout = textMeasurer.measure(text, style)
+                    drawText(textLayout, topLeft = Offset(x - textLayout.size.width/2f, y - 16f))
+                }
+
+                // Dibujar aristas de toda la red (tenue)
+                for (arista in MapDataLoader.aristas) {
                     val o = nodos.find { it.id == arista.origen } ?: continue
                     val d = nodos.find { it.id == arista.destino } ?: continue
                     drawLine(
-                        Color.Gray,
-                        Offset(o.x * densityPx, o.y * densityPx),
-                        Offset(d.x * densityPx, d.y * densityPx),
-                        strokeWidth = 4f
+                        Color.Gray.copy(alpha = 0.3f),
+                        Offset(o.x * scale, o.y * scale),
+                        Offset(d.x * scale, d.y * scale),
+                        strokeWidth = 2f
                     )
                 }
 
-                for (nodo in nodos) {
-                    val nx = nodo.x * densityPx
-                    val ny = nodo.y * densityPx
-                    drawCircle(Color.LightGray, radius = 16f * densityPx, center = Offset(nx, ny))
-                    val textLayoutResult = textMeasurer.measure(
-                        text = nodo.id,
-                        style = TextStyle(
-                            color = Color.Black,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Normal,
-                            textAlign = TextAlign.Center
-                        )
-                    )
-                    drawText(
-                        textLayoutResult = textLayoutResult,
-                        topLeft = Offset(
-                            nx - textLayoutResult.size.width / 2f,
-                            ny - textLayoutResult.size.height / 2f
-                        )
-                    )
-                }
-
+                // Punto verde del usuario (más grande)
                 drawCircle(
                     Color.Green,
-                    radius = 24f * densityPx,
-                    center = Offset(currentNodo.x * densityPx, currentNodo.y * densityPx)
+                    radius = 16f,
+                    center = Offset(currentNodo.x * scale, currentNodo.y * scale)
                 )
             }
 
+            // Instrucciones abajo
             Column(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
             ) {
