@@ -1,0 +1,93 @@
+openapi: 3.0.0
+info:
+  title: UAM Map API
+  description: API para el sistema de navegación interna de la Universidad Americana (UAM).
+  version: 1.0.0
+servers:
+  - url: https://uam-api.example.com/
+    description: Servidor de producción
+
+paths:
+  /campus.geojson:
+    get:
+      summary: Obtiene los datos geográficos del campus
+      description: Retorna un archivo GeoJSON con los edificios, calles y puntos de interés.
+      responses:
+        '200':
+          description: Archivo GeoJSON obtenido exitosamente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: FeatureCollection
+                  features:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Feature'
+
+  /location:
+    post:
+      summary: Actualiza la ubicación del usuario
+      description: Envía las coordenadas actuales del usuario para telemetría o seguimiento en tiempo real.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLocation'
+      responses:
+        '202':
+          description: Ubicación recibida.
+        '400':
+          description: Datos de ubicación inválidos.
+
+components:
+  schemas:
+    UserLocation:
+      type: object
+      required:
+        - userId
+        - latitude
+        - longitude
+      properties:
+        userId:
+          type: string
+          example: "user_123"
+        latitude:
+          type: number
+          format: double
+          example: 12.123456
+        longitude:
+          type: number
+          format: double
+          example: -86.123456
+        timestamp:
+          type: integer
+          format: int64
+          example: 1672531200000
+
+    Feature:
+      type: object
+      properties:
+        type:
+          type: string
+          example: Feature
+        properties:
+          type: object
+          additionalProperties:
+            type: string
+        geometry:
+          type: object
+          properties:
+            type:
+              type: string
+              example: Polygon
+            coordinates:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number

@@ -1,0 +1,23 @@
+# Task Management
+
+- [x] Research and Planning
+    - [x] Explore codebase and GeoJSON
+    - [x] Create Implementation Plan
+- [x] Dependencies & Setup
+    - [x] Add Play Services Location to `libs.versions.toml` and `build.gradle.kts`
+    - [x] Sync Gradle
+- [x] Location Infrastructure
+    - [x] Modify `MapDataLoader` to expose projection data
+    - [x] Create `LocationManager.kt`
+    - [x] Update `MainActivity.kt` with permission handling
+- [x] UI & Navigation Logic
+    - [x] Show user location in `HomeScreen`
+    - [x] Use GPS as origin for route calculation
+    - [x] Implement real-time advancement in `NavigationScreen`
+    - [x] Implement "Follow Mode" (auto-centering)
+    - [x] Refine map aesthetics for "nitido" look
+- [x] Verification
+    - [x] Verify build
+    - [x] Verify permissions
+    - [x] Verify GPS dot movement
+    - [x] Verify navigation auto-advance
