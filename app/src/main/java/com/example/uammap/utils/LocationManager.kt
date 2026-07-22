@@ -24,24 +24,24 @@ object LocationManager {
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
-            val location = locationResult.lastLocation
+            val location = locationResult.lastLocation ?: return
+            
+            // Reducimos filtros al mínimo para máxima velocidad de respuesta
+            if (location.accuracy > 30f) return 
+
             _currentLocation.value = location
             
-            // Opcional: Enviar ubicación al servidor (API REST)
-            location?.let {
-                scope.launch {
-                    try {
-                        apiService.updateLocation(
-                            UserLocationRequest(
-                                userId = "user_123", // ID de usuario dinámico
-                                latitude = it.latitude,
-                                longitude = it.longitude
-                            )
+            // Enviar ubicación al servidor (API REST)
+            scope.launch {
+                try {
+                    apiService.updateLocation(
+                        UserLocationRequest(
+                            userId = "user_123",
+                            latitude = location.latitude,
+                            longitude = location.longitude
                         )
-                    } catch (e: Exception) {
-                        // Silently fail or log
-                    }
-                }
+                    )
+                } catch (e: Exception) {}
             }
         }
     }
@@ -54,9 +54,10 @@ object LocationManager {
 
     @SuppressLint("MissingPermission")
     fun startLocationUpdates() {
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000)
-            .setMinUpdateIntervalMillis(2000)
-            .setMinUpdateDistanceMeters(2f)
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 100) // 100ms para respuesta instantánea total
+            .setMinUpdateIntervalMillis(50) 
+            .setMinUpdateDistanceMeters(0f)  // Sin umbral para que sea ultra sensible
+            .setWaitForAccurateLocation(false)
             .build()
 
         fusedLocationClient?.requestLocationUpdates(
