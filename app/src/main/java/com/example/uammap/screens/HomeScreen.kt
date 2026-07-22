@@ -104,8 +104,30 @@ fun HomeScreen(navController: NavController) {
     val isUserInCampus = remember(userLocation) {
         userLocation?.let { loc ->
             val p = MapDataLoader.project(loc.longitude, loc.latitude)
-            p.x in -100f..worldWidth + 100f && p.y in -100f..worldHeight + 100f
+            p.x in -500f..worldWidth + 500f && p.y in -500f..worldHeight + 500f
         } ?: false
+    }
+
+    // --- OPTIMIZACIÓN DE MOVIMIENTO ULTRA INSTANTÁNEO ---
+    val animatedUserLon by animateFloatAsState(
+        targetValue = userLocation?.longitude?.toFloat() ?: 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessHigh // Máxima rigidez para sincronización inmediata
+        ),
+        label = "lon"
+    )
+    val animatedUserLat by animateFloatAsState(
+        targetValue = userLocation?.latitude?.toFloat() ?: 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "lat"
+    )
+    
+    val smoothedUserPos = remember(animatedUserLon, animatedUserLat) {
+        MapDataLoader.project(animatedUserLon.toDouble(), animatedUserLat.toDouble())
     }
 
     var destinationPoint by remember { mutableStateOf<Offset?>(null) }
@@ -116,14 +138,12 @@ fun HomeScreen(navController: NavController) {
 
     LaunchedEffect(userLocation, destinationPoint, isUserInCampus) {
         if (userLocation != null && destinationPoint != null && isUserInCampus) {
-            val uP = MapDataLoader.project(userLocation!!.longitude, userLocation!!.latitude)
-            val sN = MapDataLoader.nodos.minByOrNull { (it.x - uP.x)*(it.x - uP.x) + (it.y - uP.y)*(it.y - uP.y) }
-            val eN = MapDataLoader.nodos.minByOrNull { (it.x - destinationPoint!!.x)*(it.x - destinationPoint!!.x) + (it.y - destinationPoint!!.y)*(it.y - destinationPoint!!.y) }
-            if (sN != null && eN != null) {
-                val r = CalculadorRutas.calcularRuta(MapDataLoader.nodos, MapDataLoader.aristas, sN.id, eN.id)
-                currentRoute = r?.nodos?.mapNotNull { id -> MapDataLoader.nodos.find { it.id == id }?.let { Offset(it.x, it.y) } }
-            }
-        } else { currentRoute = null }
+            // LÍNEA RECTA DIRECTA: Desde la posición visual hasta el destino
+            // Eliminamos la lógica de navegación por nodos para evitar curvas
+            currentRoute = listOf(smoothedUserPos, destinationPoint!!)
+        } else {
+            currentRoute = null
+        }
     }
 
     // ── ANIMATIONS ───────────────────────────────────────────────────────────
@@ -151,11 +171,10 @@ fun HomeScreen(navController: NavController) {
             
             val totalScale = baseScale * userZoom
 
-            LaunchedEffect(userLocation, isFollowingUser, isUserInCampus, totalScale) {
-                if (isFollowingUser && isUserInCampus && userLocation != null) {
-                    val p = MapDataLoader.project(userLocation!!.longitude, userLocation!!.latitude)
-                    offsetX = -p.x * totalScale + cw / 2f - initOffX
-                    offsetY = -p.y * totalScale + ch / 2f - initOffY
+            LaunchedEffect(smoothedUserPos, isFollowingUser, isUserInCampus, totalScale) {
+                if (isFollowingUser && isUserInCampus) {
+                    offsetX = -smoothedUserPos.x * totalScale + cw / 2f - initOffX
+                    offsetY = -smoothedUserPos.y * totalScale + ch / 2f - initOffY
                 }
             }
 
@@ -175,8 +194,11 @@ fun HomeScreen(navController: NavController) {
                     }
                     .pointerInput(baseScale) {
                         detectTapGestures { tap ->
-                            val worldX = (tap.x - initOffX - offsetX) / totalScale
-                            val worldY = (tap.y - initOffY - offsetY) / totalScale
+                            // CORRECCIÓN DEFINITIVA: Usar el mismo 'totalScale' que el Canvas
+                            val currentTotalScale = baseScale * userZoom
+                            val worldX = (tap.x - initOffX - offsetX) / currentTotalScale
+                            val worldY = (tap.y - initOffY - offsetY) / currentTotalScale
+
                             destinationPoint = Offset(worldX, worldY)
                             destinationName = null
                             if (isUserInCampus && userLocation != null) isFollowingUser = true
@@ -255,10 +277,9 @@ fun HomeScreen(navController: NavController) {
                     }
                 }
 
-                // ── GPS AND TARGET ──
+                // --- GPS AND TARGET ---
                 if (isUserInCampus && userLocation != null) {
-                    val p = MapDataLoader.project(userLocation!!.longitude, userLocation!!.latitude)
-                    val c = Offset(p.x * totalScale + initOffX + offsetX, p.y * totalScale + initOffY + offsetY)
+                    val c = Offset(smoothedUserPos.x * totalScale + initOffX + offsetX, smoothedUserPos.y * totalScale + initOffY + offsetY)
                     drawCircle(Color(0xFF2196F3).copy(pAlpha), 35f * pScale * userZoom.coerceIn(0.8f, 1.5f), c)
                     drawCircle(Color.White, 9f, c); drawCircle(Color(0xFF2196F3), 7f, c)
                 }
